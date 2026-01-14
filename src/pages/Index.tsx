@@ -1,10 +1,11 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Waves } from "lucide-react";
 import { DropZone } from "@/components/DropZone";
 import { ConvertButton } from "@/components/ConvertButton";
 import { DownloadButton } from "@/components/DownloadButton";
 import { DirectionToggle } from "@/components/DirectionToggle";
+import { QualitySelector, Bitrate } from "@/components/QualitySelector";
 import { convertAudio, ConversionDirection } from "@/lib/audioConverter";
 import { toast } from "sonner";
 
@@ -13,6 +14,7 @@ const Index = () => {
   const [isConverting, setIsConverting] = useState(false);
   const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
   const [direction, setDirection] = useState<ConversionDirection>("mp3-to-wav");
+  const [bitrate, setBitrate] = useState<Bitrate>(192);
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
@@ -37,7 +39,7 @@ const Index = () => {
     setOutputBlob(null);
 
     try {
-      const result = await convertAudio(file, direction);
+      const result = await convertAudio(file, direction, bitrate);
       setOutputBlob(result);
       toast.success("Conversion complete!");
     } catch (error) {
@@ -96,6 +98,13 @@ const Index = () => {
               onFileSelect={handleFileSelect}
               onFileClear={handleFileClear}
             />
+
+            {/* Quality Selector (only for WAV to MP3) */}
+            <AnimatePresence>
+              {direction === "wav-to-mp3" && (
+                <QualitySelector bitrate={bitrate} onChange={setBitrate} />
+              )}
+            </AnimatePresence>
 
             {/* Convert Button */}
             <div className="flex justify-center">

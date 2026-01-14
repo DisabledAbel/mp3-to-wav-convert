@@ -1,8 +1,13 @@
 import lamejs from "lamejs";
 
 export type ConversionDirection = "mp3-to-wav" | "wav-to-mp3";
+export type Bitrate = 128 | 192 | 256 | 320;
 
-export async function convertAudio(file: File, direction: ConversionDirection): Promise<Blob> {
+export async function convertAudio(
+  file: File, 
+  direction: ConversionDirection,
+  bitrate: Bitrate = 128
+): Promise<Blob> {
   const audioContext = new AudioContext();
   const arrayBuffer = await file.arrayBuffer();
   const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -12,7 +17,7 @@ export async function convertAudio(file: File, direction: ConversionDirection): 
   if (direction === "mp3-to-wav") {
     return audioBufferToWav(audioBuffer);
   } else {
-    return audioBufferToMp3(audioBuffer);
+    return audioBufferToMp3(audioBuffer, bitrate);
   }
 }
 
@@ -68,12 +73,11 @@ function audioBufferToWav(buffer: AudioBuffer): Blob {
   return new Blob([arrayBuffer], { type: 'audio/wav' });
 }
 
-function audioBufferToMp3(buffer: AudioBuffer): Blob {
+function audioBufferToMp3(buffer: AudioBuffer, bitrate: Bitrate): Blob {
   const numChannels = Math.min(buffer.numberOfChannels, 2); // MP3 supports max 2 channels
   const sampleRate = buffer.sampleRate;
-  const kbps = 128;
   
-  const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, kbps);
+  const mp3encoder = new lamejs.Mp3Encoder(numChannels, sampleRate, bitrate);
   const mp3Data: ArrayBuffer[] = [];
   
   const sampleBlockSize = 1152;
