@@ -124,12 +124,6 @@ mp3-to-wav-convertit/
 
 ---
 
-## License
-
-MIT License
-
----
-
 ## Privacy Statement
 
 All audio conversion happens locally in your browser. Files are never uploaded, stored, or transmitted to any server.
