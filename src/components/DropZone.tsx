@@ -1,15 +1,21 @@
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, FileAudio, X } from "lucide-react";
+import { ConversionDirection } from "@/lib/audioConverter";
 
 interface DropZoneProps {
   file: File | null;
+  direction: ConversionDirection;
   onFileSelect: (file: File) => void;
   onFileClear: () => void;
 }
 
-export const DropZone = ({ file, onFileSelect, onFileClear }: DropZoneProps) => {
+export const DropZone = ({ file, direction, onFileSelect, onFileClear }: DropZoneProps) => {
   const [isDragging, setIsDragging] = useState(false);
+
+  const acceptedType = direction === "mp3-to-wav" ? "audio/mpeg" : "audio/wav";
+  const acceptedExt = direction === "mp3-to-wav" ? ".mp3" : ".wav";
+  const formatLabel = direction === "mp3-to-wav" ? "MP3" : "WAV";
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -38,12 +44,17 @@ export const DropZone = ({ file, onFileSelect, onFileClear }: DropZoneProps) => 
 
       if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
         const droppedFile = e.dataTransfer.files[0];
-        if (droppedFile.type === "audio/mpeg" || droppedFile.name.endsWith(".mp3")) {
+        const isValidMp3 = direction === "mp3-to-wav" && 
+          (droppedFile.type === "audio/mpeg" || droppedFile.name.toLowerCase().endsWith(".mp3"));
+        const isValidWav = direction === "wav-to-mp3" && 
+          (droppedFile.type === "audio/wav" || droppedFile.type === "audio/wave" || droppedFile.name.toLowerCase().endsWith(".wav"));
+        
+        if (isValidMp3 || isValidWav) {
           onFileSelect(droppedFile);
         }
       }
     },
-    [onFileSelect]
+    [onFileSelect, direction]
   );
 
   const handleFileInput = useCallback(
@@ -88,7 +99,7 @@ export const DropZone = ({ file, onFileSelect, onFileClear }: DropZoneProps) => 
           >
             <input
               type="file"
-              accept=".mp3,audio/mpeg"
+              accept={`${acceptedExt},${acceptedType}`}
               onChange={handleFileInput}
               className="hidden"
             />
@@ -103,7 +114,7 @@ export const DropZone = ({ file, onFileSelect, onFileClear }: DropZoneProps) => 
               </div>
               <div className="text-center">
                 <p className="text-lg font-medium text-foreground">
-                  {isDragging ? "Drop your MP3 here" : "Drag & drop your MP3 file"}
+                  {isDragging ? `Drop your ${formatLabel} here` : `Drag & drop your ${formatLabel} file`}
                 </p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   or click to browse

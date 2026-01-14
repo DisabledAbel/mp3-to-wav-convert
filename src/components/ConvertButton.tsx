@@ -1,14 +1,18 @@
 import { motion } from "framer-motion";
 import { ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ConversionDirection } from "@/lib/audioConverter";
 
 interface ConvertButtonProps {
   disabled: boolean;
   isConverting: boolean;
+  direction: ConversionDirection;
   onClick: () => void;
 }
 
-export const ConvertButton = ({ disabled, isConverting, onClick }: ConvertButtonProps) => {
+export const ConvertButton = ({ disabled, isConverting, direction, onClick }: ConvertButtonProps) => {
+  const outputFormat = direction === "mp3-to-wav" ? "WAV" : "MP3";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,7 +35,7 @@ export const ConvertButton = ({ disabled, isConverting, onClick }: ConvertButton
           </>
         ) : (
           <>
-            Convert to WAV
+            Convert to {outputFormat}
             <ArrowRight className="w-5 h-5 ml-2" />
           </>
         )}
