@@ -6,6 +6,7 @@ import { ConvertButton } from "@/components/ConvertButton";
 import { DownloadButton } from "@/components/DownloadButton";
 import { DirectionToggle } from "@/components/DirectionToggle";
 import { QualitySelector, Bitrate } from "@/components/QualitySelector";
+import { AudioPreview } from "@/components/AudioPreview";
 import { convertAudio, ConversionDirection } from "@/lib/audioConverter";
 import { toast } from "sonner";
 
@@ -98,6 +99,31 @@ const Index = () => {
               onFileSelect={handleFileSelect}
               onFileClear={handleFileClear}
             />
+
+            {/* Audio Previews */}
+            <AnimatePresence mode="wait">
+              {(file || outputBlob) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-3"
+                >
+                  <AudioPreview
+                    label={`Original (${inputFormat})`}
+                    audioSource={file}
+                    variant="original"
+                  />
+                  {outputBlob && (
+                    <AudioPreview
+                      label={`Converted (${outputFormat})`}
+                      audioSource={outputBlob}
+                      variant="converted"
+                    />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Quality Selector (only for WAV to MP3) */}
             <AnimatePresence>
