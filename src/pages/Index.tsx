@@ -1,36 +1,44 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { FileAudio, Waves } from "lucide-react";
+import { Waves } from "lucide-react";
 import { DropZone } from "@/components/DropZone";
 import { ConvertButton } from "@/components/ConvertButton";
 import { DownloadButton } from "@/components/DownloadButton";
-import { convertMp3ToWav } from "@/lib/audioConverter";
+import { DirectionToggle } from "@/components/DirectionToggle";
+import { convertAudio, ConversionDirection } from "@/lib/audioConverter";
 import { toast } from "sonner";
 
 const Index = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isConverting, setIsConverting] = useState(false);
-  const [wavBlob, setWavBlob] = useState<Blob | null>(null);
+  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
+  const [direction, setDirection] = useState<ConversionDirection>("mp3-to-wav");
 
   const handleFileSelect = (selectedFile: File) => {
     setFile(selectedFile);
-    setWavBlob(null);
+    setOutputBlob(null);
   };
 
   const handleFileClear = () => {
     setFile(null);
-    setWavBlob(null);
+    setOutputBlob(null);
+  };
+
+  const handleToggleDirection = () => {
+    setDirection(prev => prev === "mp3-to-wav" ? "wav-to-mp3" : "mp3-to-wav");
+    setFile(null);
+    setOutputBlob(null);
   };
 
   const handleConvert = async () => {
     if (!file) return;
 
     setIsConverting(true);
-    setWavBlob(null);
+    setOutputBlob(null);
 
     try {
-      const result = await convertMp3ToWav(file);
-      setWavBlob(result);
+      const result = await convertAudio(file, direction);
+      setOutputBlob(result);
       toast.success("Conversion complete!");
     } catch (error) {
       console.error("Conversion error:", error);
@@ -39,6 +47,9 @@ const Index = () => {
       setIsConverting(false);
     }
   };
+
+  const inputFormat = direction === "mp3-to-wav" ? "MP3" : "WAV";
+  const outputFormat = direction === "mp3-to-wav" ? "WAV" : "MP3";
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -65,26 +76,13 @@ const Index = () => {
           {/* Card */}
           <div className="bg-card rounded-2xl shadow-card p-8 space-y-8">
             {/* Title */}
-            <div className="text-center space-y-2">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-muted text-sm font-medium text-muted-foreground">
-                  <FileAudio className="w-4 h-4" />
-                  MP3
-                </div>
-                <motion.div
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                  className="text-muted-foreground"
-                >
-                  →
-                </motion.div>
-                <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-primary/10 text-sm font-medium text-primary">
-                  <Waves className="w-4 h-4" />
-                  WAV
-                </div>
-              </div>
+            <div className="text-center space-y-4">
+              <DirectionToggle 
+                direction={direction} 
+                onToggle={handleToggleDirection} 
+              />
               <h2 className="font-display text-3xl font-bold text-foreground">
-                MP3 to WAV Converter
+                {inputFormat} to {outputFormat} Converter
               </h2>
               <p className="text-muted-foreground">
                 Convert your audio files instantly in your browser
@@ -94,6 +92,7 @@ const Index = () => {
             {/* Drop Zone */}
             <DropZone
               file={file}
+              direction={direction}
               onFileSelect={handleFileSelect}
               onFileClear={handleFileClear}
             />
@@ -103,14 +102,16 @@ const Index = () => {
               <ConvertButton
                 disabled={!file}
                 isConverting={isConverting}
+                direction={direction}
                 onClick={handleConvert}
               />
             </div>
 
             {/* Download Section */}
             <DownloadButton
-              wavBlob={wavBlob}
-              originalFileName={file?.name || "audio.mp3"}
+              outputBlob={outputBlob}
+              originalFileName={file?.name || "audio"}
+              direction={direction}
             />
           </div>
 
