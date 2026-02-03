@@ -1,58 +1,107 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Waves } from "lucide-react";
-import { DropZone } from "@/components/DropZone";
+import { Waves, RotateCcw } from "lucide-react";
+import { BatchDropZone } from "@/components/BatchDropZone";
+import { BatchFileList, BatchFile } from "@/components/BatchFileList";
 import { ConvertButton } from "@/components/ConvertButton";
-import { DownloadButton } from "@/components/DownloadButton";
+import { BatchDownloadButton } from "@/components/BatchDownloadButton";
 import { DirectionToggle } from "@/components/DirectionToggle";
 import { QualitySelector, Bitrate } from "@/components/QualitySelector";
-import { AudioPreview } from "@/components/AudioPreview";
 import { convertAudio, ConversionDirection } from "@/lib/audioConverter";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
 const Index = () => {
-  const [file, setFile] = useState<File | null>(null);
+  const [batchFiles, setBatchFiles] = useState<BatchFile[]>([]);
   const [isConverting, setIsConverting] = useState(false);
-  const [outputBlob, setOutputBlob] = useState<Blob | null>(null);
   const [direction, setDirection] = useState<ConversionDirection>("mp3-to-wav");
   const [bitrate, setBitrate] = useState<Bitrate>(192);
 
-  const handleFileSelect = (selectedFile: File) => {
-    setFile(selectedFile);
-    setOutputBlob(null);
-  };
+  const handleFilesSelect = useCallback((files: File[]) => {
+    const newBatchFiles: BatchFile[] = files.map((file) => ({
+      id: `${file.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      file,
+      status: "pending" as const,
+      progress: 0,
+    }));
+    
+    setBatchFiles((prev) => [...prev, ...newBatchFiles]);
+  }, []);
 
-  const handleFileClear = () => {
-    setFile(null);
-    setOutputBlob(null);
-  };
+  const handleRemoveFile = useCallback((id: string) => {
+    setBatchFiles((prev) => prev.filter((f) => f.id !== id));
+  }, []);
+
+  const handleClearAll = useCallback(() => {
+    setBatchFiles([]);
+  }, []);
 
   const handleToggleDirection = () => {
-    setDirection(prev => prev === "mp3-to-wav" ? "wav-to-mp3" : "mp3-to-wav");
-    setFile(null);
-    setOutputBlob(null);
+    setDirection((prev) => (prev === "mp3-to-wav" ? "wav-to-mp3" : "mp3-to-wav"));
+    setBatchFiles([]);
   };
 
+  const updateFileStatus = useCallback(
+    (id: string, updates: Partial<BatchFile>) => {
+      setBatchFiles((prev) =>
+        prev.map((f) => (f.id === id ? { ...f, ...updates } : f))
+      );
+    },
+    []
+  );
+
   const handleConvert = async () => {
-    if (!file) return;
+    const pendingFiles = batchFiles.filter((f) => f.status === "pending");
+    if (pendingFiles.length === 0) return;
 
     setIsConverting(true);
-    setOutputBlob(null);
 
-    try {
-      const result = await convertAudio(file, direction, bitrate);
-      setOutputBlob(result);
-      toast.success("Conversion complete!");
-    } catch (error) {
-      console.error("Conversion error:", error);
-      toast.error("Failed to convert file. Please try again.");
-    } finally {
-      setIsConverting(false);
+    for (const batchFile of pendingFiles) {
+      updateFileStatus(batchFile.id, { status: "converting", progress: 10 });
+
+      try {
+        // Simulate progress updates
+        const progressInterval = setInterval(() => {
+          setBatchFiles((prev) =>
+            prev.map((f) =>
+              f.id === batchFile.id && f.status === "converting" && f.progress < 90
+                ? { ...f, progress: f.progress + 10 }
+                : f
+            )
+          );
+        }, 100);
+
+        const result = await convertAudio(batchFile.file, direction, bitrate);
+
+        clearInterval(progressInterval);
+        updateFileStatus(batchFile.id, {
+          status: "completed",
+          progress: 100,
+          outputBlob: result,
+        });
+      } catch (error) {
+        console.error("Conversion error:", error);
+        updateFileStatus(batchFile.id, {
+          status: "error",
+          error: "Conversion failed",
+        });
+      }
+    }
+
+    setIsConverting(false);
+    
+    const completedCount = batchFiles.filter((f) => f.status === "completed").length + 
+      pendingFiles.filter((f) => batchFiles.find((bf) => bf.id === f.id)?.status !== "error").length;
+    
+    if (completedCount > 0) {
+      toast.success(`Converted ${pendingFiles.length} file${pendingFiles.length !== 1 ? "s" : ""}!`);
     }
   };
 
   const inputFormat = direction === "mp3-to-wav" ? "MP3" : "WAV";
   const outputFormat = direction === "mp3-to-wav" ? "WAV" : "MP3";
+  const hasPendingFiles = batchFiles.some((f) => f.status === "pending");
+  const hasCompletedFiles = batchFiles.some((f) => f.status === "completed");
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -93,33 +142,37 @@ const Index = () => {
             </div>
 
             {/* Drop Zone */}
-            <DropZone
-              file={file}
+            <BatchDropZone
               direction={direction}
-              onFileSelect={handleFileSelect}
-              onFileClear={handleFileClear}
+              onFilesSelect={handleFilesSelect}
+              hasFiles={batchFiles.length > 0}
             />
 
-            {/* Audio Previews */}
+            {/* Batch File List */}
             <AnimatePresence mode="wait">
-              {(file || outputBlob) && (
+              {batchFiles.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
                   exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3"
+                  className="space-y-4"
                 >
-                  <AudioPreview
-                    label={`Original (${inputFormat})`}
-                    audioSource={file}
-                    variant="original"
+                  <BatchFileList
+                    files={batchFiles}
+                    onRemoveFile={handleRemoveFile}
                   />
-                  {outputBlob && (
-                    <AudioPreview
-                      label={`Converted (${outputFormat})`}
-                      audioSource={outputBlob}
-                      variant="converted"
-                    />
+                  
+                  {/* Clear All Button */}
+                  {!isConverting && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleClearAll}
+                      className="w-full text-muted-foreground hover:text-foreground"
+                    >
+                      <RotateCcw className="w-4 h-4 mr-2" />
+                      Clear all files
+                    </Button>
                   )}
                 </motion.div>
               )}
@@ -135,7 +188,7 @@ const Index = () => {
             {/* Convert Button */}
             <div className="flex justify-center">
               <ConvertButton
-                disabled={!file}
+                disabled={!hasPendingFiles}
                 isConverting={isConverting}
                 direction={direction}
                 onClick={handleConvert}
@@ -143,9 +196,8 @@ const Index = () => {
             </div>
 
             {/* Download Section */}
-            <DownloadButton
-              outputBlob={outputBlob}
-              originalFileName={file?.name || "audio"}
+            <BatchDownloadButton
+              files={batchFiles}
               direction={direction}
             />
           </div>
